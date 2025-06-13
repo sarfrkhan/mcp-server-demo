@@ -11,11 +11,6 @@ dependencies = [
     "pydantic>=2.10.6",
     "typing-extensions>=4.0.0",
 ]
-authors = [
-    {name = "Amazon Web Services"},
-    {name = "AWSLabs MCP", email="203918161+awslabs-mcp@users.noreply.github.com"},
-    {name = "Erben Mo", email="moerben@amazon.com"},
-]
 
 [project.scripts]
 "awslabs.rds-mcp-server" = "awslabs.rds_mcp_server.server:main"
