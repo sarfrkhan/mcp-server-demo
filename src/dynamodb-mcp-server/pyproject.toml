@@ -1,7 +1,7 @@
 [project]
 name = "awslabs.dynamodb-mcp-server"
 version = "1.0.2"
-description = "MCP Server for interacting with AWS DynamoDB"
+description = "The official MCP Server for interacting with AWS DynamoDB"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -11,6 +11,30 @@ dependencies = [
     "pydantic>=2.10.6",
     "typing-extensions>=4.0.0",
 ]
+license = {text = "Apache-2.0"}
+license-files = ["LICENSE", "NOTICE" ]
+authors = [
+    {name = "Amazon Web Services"},
+    {name = "AWSLabs MCP", email="203918161+awslabs-mcp@users.noreply.github.com"},
+    {name = "Erben Mo", email="moerben@amazon.com"},
+]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+homepage = "https://awslabs.github.io/mcp/"
+docs = "https://awslabs.github.io/mcp/servers/dynamodb-mcp-server/"
+documentation = "https://awslabs.github.io/mcp/servers/dynamodb-mcp-server/"
+repository = "https://github.com/awslabs/mcp.git"
+changelog = "https://github.com/awslabs/mcp/blob/main/src/dynamodb-mcp-server/CHANGELOG.md"
 
 [project.scripts]
 "awslabs.dynamodb-mcp-server" = "awslabs.dynamodb_mcp_server.server:main"

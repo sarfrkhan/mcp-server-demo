@@ -1,6 +1,6 @@
 # AWS DynamoDB MCP Server
 
-MCP Server for interacting with AWS DynamoDB
+The official MCP Server for interacting with AWS DynamoDB
 
 ## Available MCP Tools
 
@@ -47,3 +47,64 @@ MCP Server for interacting with AWS DynamoDB
 ### Misc
 - `describe_limits` - Returns the current provisioned-capacity quotas for your AWS account
 - `describe_endpoints` - Returns DynamoDB endpoints for the current region
+
+## Instructions
+
+The official MCP Server for interacting with AWS DynamoDB provides a comprehensive set of tools for managing DynamoDB resources. Each tool maps directly to DynamoDB API operations and supports all relevant parameters.
+
+To use these tools, ensure you have proper AWS credentials configured with appropriate permissions for DynamoDB operations. The server will automatically use credentials from environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN) or other standard AWS credential sources.
+
+All tools support an optional `region_name` parameter to specify which AWS region to operate in. If not provided, it will use the AWS_REGION environment variable or default to 'us-west-2'.
+
+## Prerequisites
+
+1. Install `uv` from [Astral](https://docs.astral.sh/uv/getting-started/installation/) or the [GitHub README](https://github.com/astral-sh/uv#installation)
+2. Install Python using `uv python install 3.10`
+3. Set up AWS credentials with access to AWS services
+   - Consider setting up Read-only permission if you don't want the LLM to modify any resources
+
+## Installation
+
+Add the MCP to your favorite agentic tools. e.g. for Amazon Q Developer CLI MCP, `~/.aws/amazonq/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "awslabs.dynamodb-mcp-server": {
+      "command": "uvx",
+      "args": ["awslabs.dynamodb-mcp-server@latest"],
+      "env": {
+        "DDB-MCP-READONLY": "true",
+        "AWS_PROFILE": "default",
+        "AWS_REGION": "us-west-2",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+or docker after a successful `docker build -t awslabs/dynamodb-mcp-server .`:
+
+```json
+  {
+    "mcpServers": {
+      "awslabs.dynamodb-mcp-server": {
+        "command": "docker",
+        "args": [
+          "run",
+          "--rm",
+          "--interactive",
+          "--env",
+          "FASTMCP_LOG_LEVEL=ERROR",
+          "awslabs/dynamodb-mcp-server:latest"
+        ],
+        "env": {},
+        "disabled": false,
+        "autoApprove": []
+      }
+    }
+  }
+```
