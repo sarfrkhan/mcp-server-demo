@@ -45,10 +45,7 @@ check_prerequisites() {
         exit 1
     fi
     
-    if ! command -v zip &> /dev/null; then
-        echo_error "zip command is not available. Please install it first."
-        exit 1
-    fi
+    # zip command check removed - we'll use Python's zipfile module instead
     
     # Check AWS credentials
     if ! aws sts get-caller-identity &> /dev/null; then
@@ -119,17 +116,56 @@ package_lambda() {
     
     # Create virtual environment and install dependencies
     python3 -m venv venv
-    source venv/bin/activate
+    
+    # Activate virtual environment (Windows/Linux compatible)
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+        source venv/Scripts/activate
+    else
+        source venv/bin/activate
+    fi
+    
     pip install -r requirements.txt -t .
     
-    # Copy shared utilities
-    cp -r ../shared/* .
+    # Copy shared utilities (Windows/Linux compatible)
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+        cp -r ../shared/* . 2>/dev/null || true
+    else
+        cp -r ../shared/* .
+    fi
     
-    # Create zip package
-    zip -r ../$zip_file . -x "venv/*" "*.pyc" "__pycache__/*"
+    # Create zip package using Python (cross-platform)
+    python3 -c "
+import zipfile
+import os
+import sys
+
+def create_zip(zip_path, source_dir):
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(source_dir):
+            # Skip venv directory and cache files
+            dirs[:] = [d for d in dirs if d not in ['venv', '__pycache__', '.git']]
+            for file in files:
+                if not file.endswith(('.pyc', '.pyo')) and not file.startswith('.'):
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, source_dir)
+                    try:
+                        zipf.write(file_path, arcname)
+                    except Exception as e:
+                        print(f'Warning: Could not add {file_path}: {e}')
+
+create_zip('../$zip_file', '.')
+print('Zip package created successfully')
+"
     
     deactivate
-    rm -rf venv
+    
+    # Clean up virtual environment (Windows/Linux compatible)
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+        rm -rf venv 2>/dev/null || true
+    else
+        rm -rf venv
+    fi
+    
     cd ..
     
     echo_info "Package created: $zip_file"
