@@ -182,10 +182,27 @@ deploy_lambda() {
     
     # Build environment variables parameter only if we have non-empty variables
     local env_param=""
-    if [[ -n "$env_vars" && "$env_vars" != *"MCP_API_KEY=" ]]; then
-        env_param="--environment Variables={$env_vars}"
-    elif [[ "$env_vars" == *"MCP_API_KEY="* && "$env_vars" != *"MCP_API_KEY=," && "$env_vars" != *"MCP_API_KEY=" ]]; then
-        env_param="--environment Variables={$env_vars}"
+    
+    # Clean up environment variables - remove empty values
+    local clean_env_vars=""
+    if [[ -n "$env_vars" ]]; then
+        # Split by comma and rebuild with only non-empty values
+        IFS=',' read -ra ENV_ARRAY <<< "$env_vars"
+        for env_var in "${ENV_ARRAY[@]}"; do
+            # Check if variable has a non-empty value (not just KEY=)
+            if [[ "$env_var" == *"="* && "$env_var" != *"=" ]]; then
+                if [[ -n "$clean_env_vars" ]]; then
+                    clean_env_vars="$clean_env_vars,$env_var"
+                else
+                    clean_env_vars="$env_var"
+                fi
+            fi
+        done
+    fi
+    
+    # Only set environment parameter if we have clean variables
+    if [[ -n "$clean_env_vars" ]]; then
+        env_param="--environment Variables={$clean_env_vars}"
     fi
     
     # Check if function exists
@@ -282,7 +299,7 @@ create_api_gateway() {
         --statement-id apigateway-invoke \
         --action lambda:InvokeFunction \
         --principal apigateway.amazonaws.com \
-        --source-arn "arn:aws:apigateway:$REGION:*" || true
+        --source-arn "arn:aws:apigateway:$REGION::/restapis/$API_ID/*/*" || true
     
     # Deploy API
     aws apigateway create-deployment \
