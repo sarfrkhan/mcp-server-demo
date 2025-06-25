@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "s3-aws": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://YOUR_S3_API_URL_HERE"]
+    },
+    "kendra-aws": {
+      "command": "npx", 
+      "args": ["mcp-remote", "https://YOUR_KENDRA_API_URL_HERE"]
+    }
+  }
+}

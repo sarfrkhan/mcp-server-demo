@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Kendra MCP Server deployed as AWS Lambda
+
+Parameters:
+  ApiKeyParameter:
+    Type: String
+    Description: API Key for authentication (leave empty for no auth)
+    Default: ""
+    NoEcho: true
+  
+  KendraIndexId:
+    Type: String
+    Description: Default Kendra Index ID (optional)
+    Default: ""
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.11
+    Environment:
+      Variables:
+        MCP_API_KEY: !Ref ApiKeyParameter
+        KENDRA_INDEX_ID: !Ref KendraIndexId
+
+Resources:
+  # Shared layer for common utilities
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: kendra-mcp-shared-layer
+      Description: Shared utilities for Kendra MCP server
+      ContentUri: ../shared/
+      CompatibleRuntimes:
+        - python3.11
+    Metadata:
+      BuildMethod: python3.11
+
+  # Kendra MCP Lambda Function
+  KendraMCPFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: kendra-mcp-server
+      CodeUri: .
+      Handler: lambda_function.lambda_handler
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - kendra:Query
+              - kendra:ListIndices
+              - kendra:DescribeIndex
+            Resource: "*"
+      Events:
+        # Handle all Kendra operations
+        KendraApi:
+          Type: Api
+          Properties:
+            Path: /kendra/{proxy+}
+            Method: ANY
+            RestApiId: !Ref KendraMCPApi
+        # Root path for health check
+        RootApi:
+          Type: Api
+          Properties:
+            Path: /kendra
+            Method: GET
+            RestApiId: !Ref KendraMCPApi
+
+  # API Gateway
+  KendraMCPApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: kendra-mcp-api
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      DefinitionBody:
+        openapi: 3.0.1
+        info:
+          title: Kendra MCP API
+          version: 1.0.0
+        paths:
+          /kendra:
+            get:
+              summary: Health check
+              responses:
+                '200':
+                  description: OK
+          /kendra/{proxy+}:
+            x-amazon-apigateway-any-method:
+              parameters:
+                - name: proxy
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${KendraMCPFunction.Arn}/invocations'
+
+Outputs:
+  KendraMCPApiUrl:
+    Description: "API Gateway endpoint URL for Kendra MCP server"
+    Value: !Sub "https://${KendraMCPApi}.execute-api.${AWS::Region}.amazonaws.com/prod/kendra"
+    Export:
+      Name: !Sub "${AWS::StackName}-KendraMCPApiUrl"
+  
+  KendraMCPFunctionArn:
+    Description: "Kendra MCP Lambda Function ARN"
+    Value: !GetAtt KendraMCPFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-KendraMCPFunctionArn"
+
+  ApiKeyInfo:
+    Description: "API Key configuration info"
+    Value: !If 
+      - HasApiKey
+      - "API Key authentication enabled"
+      - "No authentication (development mode)"
+
+  KendraIndexInfo:
+    Description: "Kendra Index configuration"
+    Value: !If
+      - HasKendraIndex
+      - !Sub "Default Index ID: ${KendraIndexId}"
+      - "No default index configured"
+
+Conditions:
+  HasApiKey: !Not [!Equals [!Ref ApiKeyParameter, ""]]
+  HasKendraIndex: !Not [!Equals [!Ref KendraIndexId, ""]]
