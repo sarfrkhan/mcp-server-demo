@@ -180,6 +180,14 @@ deploy_lambda() {
     
     echo_info "Deploying Lambda function: $function_name"
     
+    # Build environment variables parameter only if we have non-empty variables
+    local env_param=""
+    if [[ -n "$env_vars" && "$env_vars" != *"MCP_API_KEY=" ]]; then
+        env_param="--environment Variables={$env_vars}"
+    elif [[ "$env_vars" == *"MCP_API_KEY="* && "$env_vars" != *"MCP_API_KEY=," && "$env_vars" != *"MCP_API_KEY=" ]]; then
+        env_param="--environment Variables={$env_vars}"
+    fi
+    
     # Check if function exists
     if aws lambda get-function --function-name $function_name &> /dev/null; then
         echo_info "Updating existing function..."
@@ -187,20 +195,33 @@ deploy_lambda() {
             --function-name $function_name \
             --zip-file fileb://$zip_file
         
-        aws lambda update-function-configuration \
-            --function-name $function_name \
-            --environment "Variables={$env_vars}"
+        if [[ -n "$env_param" ]]; then
+            aws lambda update-function-configuration \
+                --function-name $function_name \
+                $env_param
+        fi
     else
         echo_info "Creating new function..."
-        aws lambda create-function \
-            --function-name $function_name \
-            --runtime python3.11 \
-            --role $role_arn \
-            --handler lambda_function.lambda_handler \
-            --zip-file fileb://$zip_file \
-            --timeout 30 \
-            --memory-size 512 \
-            --environment "Variables={$env_vars}"
+        if [[ -n "$env_param" ]]; then
+            aws lambda create-function \
+                --function-name $function_name \
+                --runtime python3.11 \
+                --role $role_arn \
+                --handler lambda_function.lambda_handler \
+                --zip-file fileb://$zip_file \
+                --timeout 30 \
+                --memory-size 512 \
+                $env_param
+        else
+            aws lambda create-function \
+                --function-name $function_name \
+                --runtime python3.11 \
+                --role $role_arn \
+                --handler lambda_function.lambda_handler \
+                --zip-file fileb://$zip_file \
+                --timeout 30 \
+                --memory-size 512
+        fi
     fi
 }
 
