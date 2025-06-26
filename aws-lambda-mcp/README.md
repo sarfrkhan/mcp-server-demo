@@ -70,22 +70,37 @@ Edit the deployment scripts to customize:
 
 ## Usage in Cline
 
-After deployment, add the API endpoints to your Cline MCP configuration:
+After deployment, users can add the API endpoints to their Cline MCP configuration using the **Remote Servers** tab in Cline's MCP interface:
+
+### Method 1: Using Cline's Remote Servers Interface (Recommended)
+1. Open Cline in VS Code
+2. Click the menu (⋮) in the top right corner of the Cline panel
+3. Select "MCP Servers" from the dropdown menu
+4. Click on the "Remote Servers" tab
+5. Add your servers:
+   - **Server Name**: `S3 MCP Server`
+   - **Server URL**: `https://API-ID.execute-api.region.amazonaws.com/prod/s3-mcp`
+   - Click "Add Server"
+
+### Method 2: Manual Configuration File
+Alternatively, you can manually edit the MCP configuration file:
 
 ```json
 {
   "mcpServers": {
     "s3-server": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/prod/s3-mcp"]
+      "url": "https://API-ID.execute-api.region.amazonaws.com/prod/s3-mcp",
+      "disabled": false
     },
     "kendra-server": {
-      "command": "npx", 
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/prod/kendra-mcp"]
+      "url": "https://API-ID.execute-api.region.amazonaws.com/prod/kendra-mcp",
+      "disabled": false
     }
   }
 }
 ```
+
+**Note**: Replace `API-ID` and `region` with your actual API Gateway ID and AWS region from the deployment output.
 
 The actual API endpoints will be displayed after successful deployment.
 

@@ -138,13 +138,21 @@ aws apigateway get-resources \
     --query "items[?pathPart=='s3-mcp'].id" \
     --output text)
 
-# Create POST method
+# Create GET method for SSE connection
+aws apigateway put-method \
+    --rest-api-id $API_ID \
+    --resource-id $RESOURCE_ID \
+    --http-method GET \
+    --authorization-type NONE \
+    --region $REGION 2>/dev/null || echo "GET method already exists"
+
+# Create POST method for MCP messages
 aws apigateway put-method \
     --rest-api-id $API_ID \
     --resource-id $RESOURCE_ID \
     --http-method POST \
     --authorization-type NONE \
-    --region $REGION 2>/dev/null || echo "Method already exists"
+    --region $REGION 2>/dev/null || echo "POST method already exists"
 
 # Create OPTIONS method for CORS
 aws apigateway put-method \
@@ -154,7 +162,17 @@ aws apigateway put-method \
     --authorization-type NONE \
     --region $REGION 2>/dev/null || echo "OPTIONS method already exists"
 
-# Set up Lambda integration
+# Set up Lambda integration for GET (SSE connection)
+aws apigateway put-integration \
+    --rest-api-id $API_ID \
+    --resource-id $RESOURCE_ID \
+    --http-method GET \
+    --type AWS_PROXY \
+    --integration-http-method POST \
+    --uri "arn:aws:apigateway:$REGION:lambda:path/2015-03-31/functions/arn:aws:lambda:$REGION:$ACCOUNT_ID:function:$FUNCTION_NAME/invocations" \
+    --region $REGION 2>/dev/null || echo "GET integration already exists"
+
+# Set up Lambda integration for POST (MCP messages)
 aws apigateway put-integration \
     --rest-api-id $API_ID \
     --resource-id $RESOURCE_ID \
@@ -162,7 +180,7 @@ aws apigateway put-integration \
     --type AWS_PROXY \
     --integration-http-method POST \
     --uri "arn:aws:apigateway:$REGION:lambda:path/2015-03-31/functions/arn:aws:lambda:$REGION:$ACCOUNT_ID:function:$FUNCTION_NAME/invocations" \
-    --region $REGION 2>/dev/null || echo "Integration already exists"
+    --region $REGION 2>/dev/null || echo "POST integration already exists"
 
 # Set up OPTIONS integration for CORS
 aws apigateway put-integration \
@@ -177,10 +195,18 @@ aws apigateway put-integration \
 aws apigateway put-method-response \
     --rest-api-id $API_ID \
     --resource-id $RESOURCE_ID \
+    --http-method GET \
+    --status-code 200 \
+    --response-parameters '{"method.response.header.Access-Control-Allow-Origin": false}' \
+    --region $REGION 2>/dev/null || echo "GET method response already exists"
+
+aws apigateway put-method-response \
+    --rest-api-id $API_ID \
+    --resource-id $RESOURCE_ID \
     --http-method POST \
     --status-code 200 \
     --response-parameters '{"method.response.header.Access-Control-Allow-Origin": false}' \
-    --region $REGION 2>/dev/null || echo "Method response already exists"
+    --region $REGION 2>/dev/null || echo "POST method response already exists"
 
 aws apigateway put-method-response \
     --rest-api-id $API_ID \
@@ -194,17 +220,25 @@ aws apigateway put-method-response \
 aws apigateway put-integration-response \
     --rest-api-id $API_ID \
     --resource-id $RESOURCE_ID \
+    --http-method GET \
+    --status-code 200 \
+    --response-parameters '{"method.response.header.Access-Control-Allow-Origin": "'"'"'*'"'"'"}' \
+    --region $REGION 2>/dev/null || echo "GET integration response already exists"
+
+aws apigateway put-integration-response \
+    --rest-api-id $API_ID \
+    --resource-id $RESOURCE_ID \
     --http-method POST \
     --status-code 200 \
     --response-parameters '{"method.response.header.Access-Control-Allow-Origin": "'"'"'*'"'"'"}' \
-    --region $REGION 2>/dev/null || echo "Integration response already exists"
+    --region $REGION 2>/dev/null || echo "POST integration response already exists"
 
 aws apigateway put-integration-response \
     --rest-api-id $API_ID \
     --resource-id $RESOURCE_ID \
     --http-method OPTIONS \
     --status-code 200 \
-    --response-parameters '{"method.response.header.Access-Control-Allow-Origin": "'"'"'*'"'"'", "method.response.header.Access-Control-Allow-Methods": "'"'"'POST,OPTIONS'"'"'", "method.response.header.Access-Control-Allow-Headers": "'"'"'Content-Type'"'"'"}' \
+    --response-parameters '{"method.response.header.Access-Control-Allow-Origin": "'"'"'*'"'"'", "method.response.header.Access-Control-Allow-Methods": "'"'"'GET,POST,OPTIONS'"'"'", "method.response.header.Access-Control-Allow-Headers": "'"'"'Content-Type'"'"'"}' \
     --response-templates '{"application/json": ""}' \
     --region $REGION 2>/dev/null || echo "OPTIONS integration response already exists"
 
@@ -231,12 +265,22 @@ echo ""
 echo "Deployment completed!"
 echo "API Endpoint: $API_ENDPOINT"
 echo ""
-echo "To use this MCP server in Cline, add this to your MCP configuration:"
+echo "To use this MCP server in Cline:"
+echo ""
+echo "Method 1: Using Cline's Remote Servers Interface (Recommended)"
+echo "1. Open Cline → Menu (⋮) → 'MCP Servers'"
+echo "2. Click 'Remote Servers' tab"
+echo "3. Add server:"
+echo "   - Server Name: S3 MCP Server"
+echo "   - Server URL: $API_ENDPOINT"
+echo "   - Click 'Add Server'"
+echo ""
+echo "Method 2: Manual Configuration File"
 echo '{'
 echo '  "mcpServers": {'
 echo '    "s3-server": {'
-echo '      "command": "npx",'
-echo '      "args": ["-y", "@modelcontextprotocol/server-fetch", "'$API_ENDPOINT'"]'
+echo '      "url": "'$API_ENDPOINT'",'
+echo '      "disabled": false'
 echo '    }'
 echo '  }'
 echo '}'

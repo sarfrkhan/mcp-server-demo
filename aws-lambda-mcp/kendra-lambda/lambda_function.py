@@ -184,49 +184,94 @@ class MCPServer:
 
 # Lambda Handler
 def lambda_handler(event, context):
-    """AWS Lambda handler for MCP Kendra server."""
+    """AWS Lambda handler for MCP Kendra server with SSE transport support."""
     try:
-        # Parse the request body
-        if isinstance(event.get('body'), str):
-            body = json.loads(event['body'])
-        else:
-            body = event.get('body', {})
+        http_method = event.get('httpMethod', 'POST')
         
-        # Create MCP server instance
-        server = MCPServer()
+        # Handle SSE connection establishment (GET request)
+        if http_method == 'GET':
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "text/event-stream",
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type"
+                },
+                "body": "data: {\"type\": \"connection\", \"status\": \"connected\"}\n\n"
+            }
         
-        # Handle different MCP methods
-        method = body.get('method')
-        params = body.get('params', {})
-        request_id = body.get('id')
+        # Handle OPTIONS for CORS
+        if http_method == 'OPTIONS':
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type"
+                },
+                "body": ""
+            }
         
-        if method == 'initialize':
-            result = server.handle_initialize(params)
-        elif method == 'tools/list':
-            result = server.handle_tools_list()
-        elif method == 'tools/call':
-            tool_name = params.get('name')
-            arguments = params.get('arguments', {})
-            result = server.handle_tools_call(tool_name, arguments)
-        else:
-            result = {"error": f"Unknown method: {method}"}
+        # Handle MCP messages (POST request)
+        if http_method == 'POST':
+            # Parse the request body
+            if isinstance(event.get('body'), str):
+                body = json.loads(event['body'])
+            else:
+                body = event.get('body', {})
+            
+            # Create MCP server instance
+            server = MCPServer()
+            
+            # Handle different MCP methods
+            method = body.get('method')
+            params = body.get('params', {})
+            request_id = body.get('id')
+            
+            if method == 'initialize':
+                result = server.handle_initialize(params)
+            elif method == 'tools/list':
+                result = server.handle_tools_list()
+            elif method == 'tools/call':
+                tool_name = params.get('name')
+                arguments = params.get('arguments', {})
+                result = server.handle_tools_call(tool_name, arguments)
+            else:
+                result = {"error": f"Unknown method: {method}"}
+            
+            # Return MCP-formatted response as SSE event
+            response_body = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": result
+            }
+            
+            # Format as Server-Sent Event
+            sse_data = f"data: {json.dumps(response_body)}\n\n"
+            
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "text/event-stream",
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type"
+                },
+                "body": sse_data
+            }
         
-        # Return MCP-formatted response
-        response_body = {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "result": result
-        }
-        
+        # Unsupported method
         return {
-            "statusCode": 200,
+            "statusCode": 405,
             "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type"
+                "Access-Control-Allow-Origin": "*"
             },
-            "body": json.dumps(response_body)
+            "body": json.dumps({"error": "Method not allowed"})
         }
         
     except Exception as e:
@@ -239,11 +284,15 @@ def lambda_handler(event, context):
             }
         }
         
+        # Format error as SSE event
+        sse_error = f"data: {json.dumps(error_response)}\n\n"
+        
         return {
-            "statusCode": 500,
+            "statusCode": 200,  # SSE should return 200 even for errors
             "headers": {
-                "Content-Type": "application/json",
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
                 "Access-Control-Allow-Origin": "*"
             },
-            "body": json.dumps(error_response)
+            "body": sse_error
         }
