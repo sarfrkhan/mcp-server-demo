@@ -21,10 +21,22 @@ pip install -r requirements.txt -t package/
 # Copy lambda function
 cp lambda_function.py package/
 
-# Create zip file
-cd package
-zip -r ../s3-mcp-lambda.zip .
-cd ..
+# Create zip file using Python
+python -c "
+import zipfile
+import os
+
+def create_zip(source_dir, zip_path):
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(source_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, source_dir)
+                zipf.write(file_path, arcname)
+
+create_zip('package', 's3-mcp-lambda.zip')
+print('Created s3-mcp-lambda.zip successfully')
+"
 
 # Create IAM role if it doesn't exist
 echo "Creating IAM role..."
